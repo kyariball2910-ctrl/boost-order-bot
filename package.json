@@ -15,10 +15,11 @@
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
-    "nitro": "npm:nitro-nightly@latest",
+    "nitro": "nitro",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
     "vite-tsconfig-paths": "^5.1.4"

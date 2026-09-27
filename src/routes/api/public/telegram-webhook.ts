@@ -146,7 +146,7 @@ async function getPendingOrders(): Promise<OrderRow[]> {
 
 async function getLatestPendingOrderForUser(telegramUserId: number): Promise<OrderRow | null> {
   const rows = await supabaseFetch<OrderRow[]>(
-    `/orders?telegram_user_id=eq.${telegramUserId}&status=eq.pending&select=*&order=created_at.desc&limit=1`,
+    `/orders?telegram_user_id=eq.${telegramUserId}&status=in.(pending,awaiting_verification)&select=*&order=created_at.desc&limit=1`,
   );
   return rows?.[0] ?? null;
 }
