@@ -1,6 +1,5 @@
 import { lookupSolanaTokenByAddress, searchSolanaTokens, formatUsd } from "../../lib/dexscreener.server";
 import { safeEqual, sendMessage, answerCallbackQuery } from "../../lib/telegram.server";
-import { findPaymentSignature, solToLamports } from "../../lib/solana.server";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -140,7 +139,7 @@ async function getRecentOrders(limit = 10): Promise<OrderRow[]> {
 }
 
 async function getPendingOrders(): Promise<OrderRow[]> {
-  const rows = await supabaseFetch<OrderRow[]>(`/orders?select=*&status=in.(pending,paid)&order=created_at.desc`);
+  const rows = await supabaseFetch<OrderRow[]>(`/orders?select=*&status=in.(pending,awaiting_verification,paid)&order=created_at.desc`);
   return rows ?? [];
 }
 
@@ -205,15 +204,13 @@ function formatPaymentText(order: OrderRow) {
     "Send exactly this amount to:",
     `<code>${RECEIVING_WALLET}</code>`,
     "",
-    "After sending, either:",
-    "• Tap <b>Verify Payment</b> below, or",
-    "• Paste the transaction signature (TX hash) here",
+    "After sending, reply with your transaction hash (TX signature).",
   ].join("\n");
 }
 
 async function sendUserOrder(order: OrderRow, chatId: number) {
   const text = formatPaymentText(order);
-  await sendMessage(chatId, text, [[{ text: "🔎 Verify Payment", callback_data: `verify_${order.id}` }]]);
+  await sendMessage(chatId, text);
 }
 
 export async function handleTelegramWebhookRequest(req: Request) {
@@ -310,39 +307,6 @@ export async function handleTelegramWebhookRequest(req: Request) {
       return new Response("ok", { status: 200 });
     }
 
-    if (data.startsWith("verify_")) {
-      const orderId = data.replace("verify_", "");
-      const order = await getOrderById(orderId);
-      if (!order) {
-        await answerCallbackQuery(callbackId, "Order not found.");
-        return new Response("ok", { status: 200 });
-      }
-
-      const expectedLamports = solToLamports(Number(order.price_sol));
-      const signature = await findPaymentSignature({
-        receivingWallet: RECEIVING_WALLET,
-        expectedLamports,
-        sinceUnix: Math.floor(new Date(order.created_at).getTime() / 1000),
-        usedSignatures: order.payment_tx_signature ? [order.payment_tx_signature] : [],
-      });
-
-      if (!signature) {
-        await sendMessage(userId, "❌ Payment not detected yet. Please check your transaction and try again.", [[{ text: "🔎 Retry Verification", callback_data: `verify_${order.id}` }]]);
-        await answerCallbackQuery(callbackId, "Payment still pending.");
-        return new Response("ok", { status: 200 });
-      }
-
-      await setOrderStatus(order.id, "paid", signature);
-      await sendMessage(userId, `✅ Payment confirmed for order #${order.order_number}. Your boost is now being processed.`);
-
-      for (const adminId of await getAdminIds()) {
-        await sendMessage(adminId, `💚 Payment received for order #${order.order_number} | $${order.token_symbol} | ${order.price_sol} SOL | TX ${signature}`);
-      }
-
-      await answerCallbackQuery(callbackId, "Payment confirmed.");
-      return new Response("ok", { status: 200 });
-    }
-
     return new Response("ok", { status: 200 });
   }
 
@@ -405,8 +369,8 @@ export async function handleTelegramWebhookRequest(req: Request) {
         return new Response("ok", { status: 200 });
       }
 
-      // Store the submitted TX and keep status pending for manual review
-      await setOrderStatus(pendingOrder.id, "pending", text);
+      // Store the submitted TX and mark as awaiting_verification for admin review
+      await setOrderStatus(pendingOrder.id, "awaiting_verification", text);
 
       await sendMessage(
         chatId,
