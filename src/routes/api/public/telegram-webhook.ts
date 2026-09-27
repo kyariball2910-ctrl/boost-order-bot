@@ -360,7 +360,7 @@ export async function handleTelegramWebhookRequest(req: Request) {
       return new Response("ok", { status: 200 });
     }
 
-    // Manual TX submission flow
+    // Manual TX submission flow — only notify after successful Supabase update
     const isTxSignature = /^[1-9A-HJ-NP-Za-km-z]{86,88}$/.test(text);
     if (isTxSignature) {
       const pendingOrder = await getLatestPendingOrderForUser(userId);
@@ -369,8 +369,15 @@ export async function handleTelegramWebhookRequest(req: Request) {
         return new Response("ok", { status: 200 });
       }
 
-      // Store the submitted TX and mark as awaiting_verification for admin review
-      await setOrderStatus(pendingOrder.id, "awaiting_verification", text);
+      const updated = await setOrderStatus(pendingOrder.id, "awaiting_verification", text);
+
+      if (!updated || !updated.length) {
+        await sendMessage(
+          chatId,
+          "❌ Could not save your TX. Please try again in a moment, or contact an admin if the problem persists.",
+        );
+        return new Response("ok", { status: 200 });
+      }
 
       await sendMessage(
         chatId,
