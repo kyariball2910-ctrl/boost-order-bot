@@ -1,6 +1,11 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
-export default function HomePage() {
+export const Route = createFileRoute("/")({
+  component: HomePage,
+});
+
+function HomePage() {
   const [contract, setContract] = useState("");
   const [brief, setBrief] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -33,7 +38,15 @@ export default function HomePage() {
             value={contract}
             onChange={(e) => setContract(e.target.value)}
             placeholder="Paste Solana token mint / contract address"
-            style={{ flex: 1, minWidth: 280, padding: 14, borderRadius: 10, border: "1px solid #1e8d52", background: "#0c1f15", color: "#ebfff2" }}
+            style={{
+              flex: 1,
+              minWidth: 280,
+              padding: 14,
+              borderRadius: 10,
+              border: "1px solid #1e8d52",
+              background: "#0c1f15",
+              color: "#ebfff2",
+            }}
           />
           <button
             onClick={handleGenerate}
@@ -53,35 +66,64 @@ export default function HomePage() {
         </div>
 
         {brief && !brief.ok && (
-          <div style={{ background: "#1f0e11", border: "1px solid #7a2a2a", borderRadius: 12, padding: 16, color: "#ffd7d7" }}>
+          <div
+            style={{
+              background: "#1f0e11",
+              border: "1px solid #7a2a2a",
+              borderRadius: 12,
+              padding: 16,
+              color: "#ffd7d7",
+            }}
+          >
             {brief.error}
           </div>
         )}
 
         {brief && brief.ok && (
-          <section style={{ background: "#0d1b12", border: "1px solid #24553a", borderRadius: 18, padding: 24 }}>
+          <section
+            style={{
+              background: "#0d1b12",
+              border: "1px solid #24553a",
+              borderRadius: 18,
+              padding: 24,
+            }}
+          >
             <h2 style={{ color: "#8df7b8" }}>{brief.tokenSymbol}</h2>
-            <p><strong>Contract:</strong> {brief.tokenContract}</p>
-            <p><strong>Market Cap:</strong> {brief.marketData?.marketCap}</p>
-            <p><strong>Liquidity:</strong> {brief.marketData?.liquidity}</p>
-            <p><strong>24h Volume:</strong> {brief.marketData?.volume24h}</p>
+            <p>
+              <strong>Contract:</strong> {brief.tokenContract}
+            </p>
+            <p>
+              <strong>Market Cap:</strong> {brief.marketData?.marketCap}
+            </p>
+            <p>
+              <strong>Liquidity:</strong> {brief.marketData?.liquidity}
+            </p>
+            <p>
+              <strong>24h Volume:</strong> {brief.marketData?.volume24h}
+            </p>
 
             <h3 style={{ color: "#8df7b8", marginTop: 20 }}>Objective</h3>
             <p>{brief.brief.objective}</p>
 
             <h3 style={{ color: "#8df7b8", marginTop: 20 }}>Target audience</h3>
             <ul>
-              {brief.brief.targetAudience.map((item: string) => <li key={item}>{item}</li>)}
+              {brief.brief.targetAudience.map((item: string) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
 
             <h3 style={{ color: "#8df7b8", marginTop: 20 }}>Marketing hooks</h3>
             <ul>
-              {brief.brief.marketingHooks.map((item: string) => <li key={item}>{item}</li>)}
+              {brief.brief.marketingHooks.map((item: string) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
 
             <h3 style={{ color: "#8df7b8", marginTop: 20 }}>Execution plan</h3>
             <ul>
-              {brief.brief.executionPlan.map((item: string) => <li key={item}>{item}</li>)}
+              {brief.brief.executionPlan.map((item: string) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
 
             <h3 style={{ color: "#8df7b8", marginTop: 20 }}>Disclaimer</h3>
