@@ -354,7 +354,13 @@ export async function handleTelegramWebhookRequest(req: Request) {
         await sendMessage(chatId, `Order #${orderNumber} not found.`);
         return new Response("ok", { status: 200 });
       }
-      await setOrderStatus(order.id, "completed");
+
+      const updated = await setOrderStatus(order.id, "completed");
+      if (!updated || !updated.length) {
+        await sendMessage(chatId, `❌ Failed to mark order #${orderNumber} as completed. Please try again.`);
+        return new Response("ok", { status: 200 });
+      }
+
       await sendMessage(chatId, `✅ Order #${orderNumber} marked as completed.`);
       await sendMessage(order.telegram_user_id, `✅ Your order #${order.order_number} is now complete. Your boost has been fulfilled.`);
       return new Response("ok", { status: 200 });
