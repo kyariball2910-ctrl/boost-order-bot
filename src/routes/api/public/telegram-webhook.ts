@@ -1,5 +1,6 @@
-import { lookupSolanaTokenByAddress, searchSolanaTokens, formatUsd } from "../../lib/dexscreener.server";
-import { safeEqual, sendMessage, answerCallbackQuery } from "../../lib/telegram.server";
+import { createFileRoute } from "@tanstack/react-router";
+import { lookupSolanaTokenByAddress, searchSolanaTokens, formatUsd } from "../../../lib/dexscreener.server";
+import { safeEqual, sendMessage, answerCallbackQuery } from "../../../lib/telegram.server";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -213,7 +214,7 @@ async function sendUserOrder(order: OrderRow, chatId: number) {
   await sendMessage(chatId, text);
 }
 
-export async function handleTelegramWebhookRequest(req: Request) {
+async function handleTelegramWebhookRequest(req: Request) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
   if (!SECRET || !secretHeader || !safeEqual(secretHeader, SECRET)) {
     return new Response("Unauthorized", { status: 401 });
@@ -431,10 +432,15 @@ export async function handleTelegramWebhookRequest(req: Request) {
   return new Response("ok", { status: 200 });
 }
 
-export async function POST(request: Request) {
-  return handleTelegramWebhookRequest(request);
-}
-
-export async function GET() {
-  return new Response("Telegram webhook endpoint is active.", { status: 200 });
-}
+export const Route = createFileRoute("/api/public/telegram-webhook")({
+  server: {
+    handlers: {
+      GET: async () => {
+        return new Response("Telegram webhook endpoint is active.", { status: 200 });
+      },
+      POST: async ({ request }) => {
+        return handleTelegramWebhookRequest(request);
+      },
+    },
+  },
+});
