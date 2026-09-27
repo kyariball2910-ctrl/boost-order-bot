@@ -144,6 +144,13 @@ async function getPendingOrders(): Promise<OrderRow[]> {
   return rows ?? [];
 }
 
+async function getLatestPendingOrderForUser(telegramUserId: number): Promise<OrderRow | null> {
+  const rows = await supabaseFetch<OrderRow[]>(
+    `/orders?telegram_user_id=eq.${telegramUserId}&status=eq.pending&select=*&order=created_at.desc&limit=1`,
+  );
+  return rows?.[0] ?? null;
+}
+
 async function getAdminIds(): Promise<number[]> {
   return ADMIN_IDS;
 }
@@ -198,7 +205,9 @@ function formatPaymentText(order: OrderRow) {
     "Send exactly this amount to:",
     `<code>${RECEIVING_WALLET}</code>`,
     "",
-    "After sending, tap the button below to verify.",
+    "After sending, either:",
+    "• Tap <b>Verify Payment</b> below, or",
+    "• Paste the transaction signature (TX hash) here",
   ].join("\n");
 }
 
@@ -384,6 +393,36 @@ export async function handleTelegramWebhookRequest(req: Request) {
       await setOrderStatus(order.id, "completed");
       await sendMessage(chatId, `✅ Order #${orderNumber} marked as completed.`);
       await sendMessage(order.telegram_user_id, `✅ Your order #${order.order_number} is now complete. Your boost has been fulfilled.`);
+      return new Response("ok", { status: 200 });
+    }
+
+    // Manual TX submission flow
+    const isTxSignature = /^[1-9A-HJ-NP-Za-km-z]{86,88}$/.test(text);
+    if (isTxSignature) {
+      const pendingOrder = await getLatestPendingOrderForUser(userId);
+      if (!pendingOrder) {
+        await sendMessage(chatId, "No pending order found. Create an order first, then paste the TX signature.");
+        return new Response("ok", { status: 200 });
+      }
+
+      // Store the submitted TX and keep status pending for manual review
+      await setOrderStatus(pendingOrder.id, "pending", text);
+
+      await sendMessage(
+        chatId,
+        `✅ TX received for order #${pendingOrder.order_number}.\n\n<code>${text}</code>\n\nAn admin will verify it shortly.`,
+      );
+
+      const txLink = `https://solscan.io/tx/${text}`;
+
+      for (const adminId of await getAdminIds()) {
+        await sendMessage(
+          adminId,
+          `📋 <b>TX RECEIVED</b>\n\nOrder #${pendingOrder.order_number}\nToken: $${pendingOrder.token_symbol}\nPackage: ${pendingOrder.package_name}\nAmount: ${pendingOrder.price_sol} SOL\nTX: <code>${text}</code>\n\n⚠️ Manual verification required.`,
+          [[{ text: "🔗 View on Solscan", url: txLink }]],
+        );
+      }
+
       return new Response("ok", { status: 200 });
     }
 
